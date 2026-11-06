@@ -13,11 +13,11 @@ inequality_dashboard/
 ├── build_data.py                  <- Python: EDA + model -> public/data.js
 ├── run.py                         <- one command: build + open the dashboard
 ├── requirements.txt               <- pandas, numpy, scikit-learn
-├── notebooks/advanced_analytics.ipynb  <- Colab notebook with the model code (deliverable 3)
+├── notebooks/Group_6_1_Labanza_Lontoc_Final.ipynb  <- your EDA notebook + Section 8 (project plan) + Section 9 (model) (deliverable 3)
 ├── streamlit_version/             <- original Streamlit app (alternative tool)
 ├── vercel.json
 └── public/                        <- this folder is what Vercel serves
-    ├── index.html, eda.html, data.js, plotly.min.js, topojson/world_110m.json
+    ├── index.html, data.js, plotly.min.js, topojson/world_110m.json
 ```
 
 ## Run it in VS Code
@@ -42,10 +42,10 @@ If you change `data/df_long.csv` or the model, run `python build_data.py` (or `p
 |---|---|
 | Overview | 4 KPIs, world map, average trend, trend by development group |
 | Where to act | Inequality by region, most and least unequal countries |
-| Priority countries (model) | Predicted vs actual, priority table (filter-aware, CSV download), justification, CV and hold-out tables, feature importance |
-| Plan & data notes | Problem statement, audience, 8 findings, data caveats, coverage chart |
+| Priority countries (model) | Predicted vs actual, priority table (filter-aware, CSV download, caution flag), threshold slider, minimum-score screen, justification, CV and hold-out tables, feature importance |
+| Data notes | Data caveats, years of data per country (follows the filters), coverage per year, CSV download |
 
-The dashboard has exactly 6 visuals (map, trend, group trend, region, ranking, predicted vs actual) to meet the "4 to 6 visuals" rule. Feature importance sits inside a collapsed section of the model tab. The notebook EDA views (distribution, boxplots, correlation, deciles, movers) are on a separate page, `eda.html`, linked in the footer.
+The dashboard has exactly 6 visuals (map, trend, group trend, region, ranking, predicted vs actual) to meet the "4 to 6 visuals" rule. Feature importance sits inside a collapsed section of the model tab. The notebook EDA views live only in the notebook and the paper, because a program manager cannot act on them.
 
 ## Streamlit version (the tool named in the brief)
 The brief lists Power BI, Tableau, Looker Studio, Streamlit or Plotly Dash. If your instructor wants one of those, use `streamlit_version/` (your original app, same 6 visuals, same model):
@@ -70,7 +70,7 @@ Filters: year, Human Development Group, UNDP region, country, plus the priority-
 Your live link is the `*.vercel.app` address Vercel shows. Submit it as deliverable 2.
 
 ## Before you submit (not part of the dashboard)
-- Colab notebook: upload `notebooks/advanced_analytics.ipynb` to Colab (or paste its cells at the end of your EDA notebook) and run it.
+- Colab notebook: upload `notebooks/Group_6_1_Labanza_Lontoc_Final.ipynb` to Colab, run all cells from the top (the raw data file is needed for Sections 1 to 7), and submit it.
 - IEEE paper (PDF) and the 5 to 10 minute recorded demo are still yours to produce.
 - Findings 6 to 8 on the Plan tab were added to reach the rubric's "8 to 10 findings". Read them and keep or edit them in `build_data.py`.
 

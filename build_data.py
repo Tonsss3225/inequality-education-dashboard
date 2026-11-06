@@ -35,7 +35,7 @@ BASELINE, LINEAR, FOREST = "Baseline (group mean)", "Linear Regression", "Random
 
 
 def r(x, n=2):
-    return None if x is None or (isinstance(x, float) and np.isnan(x)) else round(float(x), n)
+    return None if x is None or (isinstance(x, float) and np.isnan(x)) else round(float(x) + 1e-9, n)  # half-up, as in the notebook
 
 
 # ---------------------------------------------------------------- load
@@ -200,7 +200,8 @@ print("CV:", cv)
 print("Best:", best["model"], "| priority countries at 1.0 RMSE:", n_prio)
 
 # ---------------------------------------------------------------- Findings summary (numbers computed from data)
-m10, m21 = by_year_c[2010]["mean"], by_year_c[2021]["mean"]
+raw = obs.groupby('Year')['Inequality'].agg(['mean', 'median'])   # unrounded, so percentages match the notebook
+m10, m21 = raw.loc[2010, 'mean'], raw.loc[2021, 'mean']
 gh = obs.groupby(["Year", "HDG"])["Inequality"].mean().unstack()
 gap10, gap21 = gh.loc[2010, "Low"] - gh.loc[2010, "Very High"], gh.loc[2021, "Low"] - gh.loc[2021, "Very High"]
 o10, o21 = obs[obs.Year == 2010]["Inequality"], obs[obs.Year == 2021]["Inequality"]
@@ -210,7 +211,7 @@ top21 = obs[obs.Year == 2021].sort_values("Inequality", ascending=False).iloc[0]
 low_in_top = obs[(obs.Year == 2021)].nlargest(10, "Inequality")["HDG"].value_counts()
 findings = [
     {"title": "Average inequality is falling, but slowly",
-     "text": f"The mean dropped from {m10} in 2010 to {m21} in 2021 (down {m10-m21:.2f} points, {(m10-m21)/m10*100:.1f}%) "
+     "text": f"The mean dropped from {m10:.2f} in 2010 to {m21:.2f} in 2021 (down {m10-m21:.2f} points, {(m10-m21)/m10*100:.1f}%) "
              f"and the median from {by_year_c[2010]['median']} to {by_year_c[2021]['median']}. Part of the drop comes from coverage "
              f"growing from {coverage[2010]} to {coverage[2021]} countries.", "src": "Project plan, finding 1"},
     {"title": "Human development level is the strongest separator",
@@ -230,15 +231,16 @@ findings = [
     {"title": "Inequality is right-skewed: a long tail of very unequal countries",
      "text": f"In 2021 the mean ({by_year_c[2021]['mean']}) sits above the median ({by_year_c[2021]['median']}), and "
              f"{share_high:.1f}% of countries score {HIGH} or more. {top21['Country']} is the highest at {top21['Inequality']:.1f}.",
-     "src": "Added from notebook Section 7.1-7.2 (verify before submitting)"},
+     "src": "Notebook Sections 7.1 to 7.2"},
     {"title": "Most countries barely moved between 2010 and 2021",
      "text": f"Of {movers['n']} countries observed in both years, {movers['n_improved']} improved, {movers['n_worse']} worsened and "
              f"{movers['n_same']} did not change. Largest improvement: {movers['improved'][0]['country']} ({movers['improved'][0]['change']:+.1f} points).",
-     "src": "Added from notebook Section 7.4c (verify before submitting)"},
-    {"title": "A development-based model beats the group-average baseline",
-     "text": f"{best['model']} reaches a cross-validated RMSE of {best['cv_rmse']} vs {base_cv['cv_rmse']} for the baseline, and "
-             f"flags {n_prio} countries as more unequal than their development level predicts.",
-     "src": "Added from the model (Priority countries tab); verify before submitting"},
+     "src": "Notebook Section 7.4c"},
+    {"title": "The typical country improves faster than the average",
+     "text": f"From 2010 to 2021 the median fell {(1-raw.loc[2021,'median']/raw.loc[2010,'median'])*100:.1f}% "
+             f"({by_year_c[2010]['median']} to {by_year_c[2021]['median']}) while the mean fell {(m10-m21)/m10*100:.1f}%. The coefficient of "
+             f"variation rose from {by_year_d[2010]['cv']}% to {by_year_d[2021]['cv']}% because the center falls while the spread stays.",
+     "src": "Notebook Section 7.5"},
 ]
 
 # ---------------------------------------------------------------- write
@@ -247,10 +249,8 @@ payload = {
              "high": HIGH, "n_countries": int(long_df.ISO3.nunique()), "n_rows": int(len(long_df)),
              "n_obs": int(len(obs)), "n_unclassified": n_unc, "n_unclassified_vh": n_unc_vh},
     "countries": countries, "rows": rows,
-    "eda": {"by_year_central": by_year_c, "by_year_disp": by_year_d, "by_hdg": by_hdg, "by_region": by_region,
-            "freq": freq, "quantiles": quant, "deciles": deciles, "corr": corr_out, "movers": movers,
-            "persistence": persistence, "coverage": coverage, "counts_hdg": counts_hdg, "counts_region": counts_reg},
-    "model": model_out, "findings": findings,
+    "eda": {"persistence": persistence, "coverage": coverage},
+    "model": model_out,
 }
 OUT.parent.mkdir(exist_ok=True)
 OUT.write_text("window.DATA = " + json.dumps(payload, separators=(",", ":")) + ";\n", encoding="utf-8")

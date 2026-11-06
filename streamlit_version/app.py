@@ -597,8 +597,17 @@ def render_model():
         0.5, 2.0, 1.0, 0.25,
         help="1.0 flags countries whose actual score is more than one typical model error above the prediction.",
     )
+    min_score = st.slider(
+        "Screen by actual score: only flag countries scoring at least",
+        0, 40, 0, 5,
+        help="0 keeps every country above the priority line. Raise it to drop low-inequality countries, "
+             "for example 20 leaves only countries that score 20 or more today.",
+    )
     threshold = multiple * best_rmse
-    results = results.assign(Priority=results["Gap (Actual - Predicted)"] > threshold)
+    results = results.assign(
+        Priority=(results["Gap (Actual - Predicted)"] > threshold) & (results["Actual"] >= min_score),
+        Caution=np.where(results["Predicted"] < 0, "Predicted below zero: check actual score", ""),
+    )
 
     m1, m2, m3, m4 = st.columns(4)
     kpi(m1, "Best model", best_name, "Lowest cross-validated error")
@@ -652,7 +661,14 @@ def render_model():
                     "for a funding review beyond the development-group rule."
                 )
             else:
-                note("No country in view exceeds the priority line. Lower the threshold or widen the filters.")
+                note("No country in view exceeds the priority line. Lower the threshold, lower the minimum score, or widen the filters.")
+            caution = flagged[flagged["Caution"] != ""]
+            if not caution.empty:
+                names = ", ".join(caution["Country"])
+                st.warning(
+                    f"Caution: {names} {'are' if len(caution) > 1 else 'is'} flagged only because the linear model "
+                    "predicts a score below zero. Raise the minimum score to screen out low-inequality countries."
+                )
 
     if not view.empty:
         st.markdown("**Priority countries, largest gap first**")

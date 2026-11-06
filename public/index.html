@@ -154,6 +154,10 @@ ul.tight{margin:6px 0 0;padding-left:20px}ul.tight li{margin:3px 0}
           <label for="mult"><b>Priority threshold:</b> actual is above predicted by more than <output id="multOut">1.0</output> &times; RMSE</label>
           <input type="range" id="mult" min="0.5" max="2" step="0.25" value="1">
         </div>
+        <div class="ctl">
+          <label for="minScore"><b>Screen by actual score:</b> only flag countries scoring at least <output id="minOut">0</output> today</label>
+          <input type="range" id="minScore" min="0" max="40" step="5" value="0">
+        </div>
         <div class="kpis" id="mkpis"></div>
         <div class="card" data-core="model">
           <p class="qtitle">Predicted vs actual inequality, 2021</p>
@@ -183,28 +187,15 @@ ul.tight{margin:6px 0 0;padding-left:20px}ul.tight li{margin:3px 0}
       <!-- PLAN & NOTES -->
       <section class="panel" id="p-notes" role="tabpanel">
         <div class="card">
-          <p class="qtitle">Problem statement</p>
-          <p>An international education-development agency operates with a limited equity budget and must decide which countries to prioritize for education-equity programs. Data from 2010 to 2021 show that educational inequality is persistent, closely tied to human development level, and slowest to improve in the most unequal countries. However, development level alone does not reveal which countries are more unequal than their circumstances would predict, so funding decisions based only on development group risk overlooking them. The problem is the absence of an evidence-based method for identifying countries whose educational inequality is higher than expected for their level of development. This study develops a predictive model of 2021 Inequality in Education using HDI rank, Human Development Group, and UNDP region, evaluated through RMSE, MAE, and R&sup2; against a group-average baseline. Countries whose actual scores exceed predicted scores by more than one RMSE are flagged as priority candidates for funding review.</p>
-        </div>
-        <div class="card">
-          <p class="qtitle">Audience and decisions supported</p>
-          <p><b>Target user:</b> an education program manager at an international development agency who decides which countries receive education-equity funding and monitors whether inequality is improving.</p>
-          <ul class="tight">
-            <li>Which regions and development groups need the most attention? <i>(Overview map, Where to act)</i></li>
-            <li>Is inequality improving for the countries that need it most, or only for advanced countries? <i>(Group trend, KPI gap)</i></li>
-            <li>Which countries should be shortlisted for deeper review or funding? <i>(Ranking, Priority countries)</i></li>
-            <li>How reliable is the data for a given country or year? <i>(Data caveats below)</i></li>
-          </ul>
-        </div>
-        <div class="card">
-          <p class="qtitle">Findings summary</p>
-          <p class="qsub">Numbers are recomputed from the data by build_data.py.</p>
-          <div class="find" id="findings"></div>
-        </div>
-        <div class="card">
-          <p class="qtitle">Data caveats</p>
+          <p class="qtitle">How reliable is the data?</p>
+          <p class="qsub">Read this before you act on a country or a year. Business question: how much can I trust the number for this country?</p>
           <ul class="tight" id="caveats"></ul>
-          <p class="qsub" style="margin-top:12px"><b>Countries with data per year</b></p>
+        </div>
+        <div class="card">
+          <p class="qtitle">Data coverage by country</p>
+          <p class="qsub">Follows the sidebar filters. Countries with fewer years of data are less certain, so check them first.</p>
+          <div class="scroll" id="covCountry"></div>
+          <p class="qsub" style="margin-top:14px"><b>Countries with data per year (all countries)</b></p>
           <div id="covTable" class="scroll" style="max-height:260px"></div>
           <button class="dl" id="dlData">Download the filtered country-year data (CSV)</button>
         </div>
@@ -239,7 +230,7 @@ const f1=v=>Number(v).toFixed(1), f2=v=>Number(v).toFixed(2);
 /* ---------- data ---------- */
 const C=D.countries;
 const OBS=D.rows.map(([ci,y,v])=>({c:C[ci],y,v}));
-const state={year:2021,hdg:new Set(HDG_ALL),region:new Set(REGION_ORDER),country:new Set(),mult:1};
+const state={year:2021,hdg:new Set(HDG_ALL),region:new Set(REGION_ORDER),country:new Set(),mult:1,minScore:0};
 const ALL_NAMES=C.map(c=>c.name);
 
 function filt(rows,o={}){
@@ -289,17 +280,17 @@ function initFilters(){
   $('fCountry').addEventListener('change',add);$('fCountry').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();add();}});
   $('fReset').onclick=()=>{state.year=2021;state.hdg=new Set(HDG_ALL);state.region=new Set(REGION_ORDER);state.country=new Set();
     $('fYear').value=2021;$('fYearOut').textContent=2021;chipRow('fHdg',HDG_ALL,state.hdg,renderAll);chipRow('fRegion',REGION_ORDER,state.region,renderAll);drawCountryChips();renderAll();};
+  $('minScore').oninput=e=>{state.minScore=+e.target.value;$('minOut').textContent=state.minScore;renderModel();};
   $('mult').oninput=e=>{state.mult=+e.target.value;$('multOut').textContent=state.mult.toFixed(2).replace(/0$/,'');renderModel();};
 }
 
 /* ---------- tabs ---------- */
-const TABS=[["overview","Overview"],["act","Where to act"],["model","Priority countries (model)"],["notes","Plan & data notes"]];
+const TABS=[["overview","Overview"],["act","Where to act"],["model","Priority countries (model)"],["notes","Data notes"]];
 function initTabs(){
   const host=$('tabs');
   TABS.forEach(([id,label],i)=>{const b=document.createElement('button');b.role='tab';b.id='tab-'+id;b.textContent=label;b.setAttribute('aria-selected',i===0);b.setAttribute('aria-controls','p-'+id);
     b.onclick=()=>showTab(id);b.onkeydown=e=>{const k=TABS.findIndex(t=>t[0]===id);if(e.key==='ArrowRight'||e.key==='ArrowLeft'){const n=TABS[(k+(e.key==='ArrowRight'?1:TABS.length-1))%TABS.length][0];showTab(n);$('tab-'+n).focus();}};
     host.appendChild(b);});
-  const a=document.createElement('a');a.href='eda.html';a.id='tab-eda';a.className='tablink';a.textContent='EDA (notebook) \u2197';a.title='Opens the supplementary EDA page';host.appendChild(a);
 }
 function showTab(id){
   TABS.forEach(([t])=>{$('p-'+t).classList.toggle('active',t===id);$('tab-'+t).setAttribute('aria-selected',t===id);});
@@ -402,7 +393,7 @@ function modelView(){
 }
 function renderModel(){
   const cv=Object.fromEntries(M.cv.map(c=>[c.model,c])),thr=state.mult*M.best_rmse;
-  const all=M.results.map(r=>({...r,prio:r.gap>thr}));
+  const all=M.results.map(r=>({...r,prio:r.gap>thr&&r.actual>=state.minScore,caution:r.pred<0}));
   $('modelSub').textContent=`Model target: inequality in ${M.target_year}. Features: HDI rank, Human Development Group, UNDP region. Previous-year inequality is excluded on purpose (r = ${D.eda.persistence.r_prev} with the current value). Every country is predicted by models that never saw it (repeated 5-fold cross-validation).`;
   $('mkpis').innerHTML=kpi("Best model",M.best,"Lowest cross-validated error")+kpi("Cross-validated RMSE",f2(cv[M.best].cv_rmse),`Baseline: ${f2(cv[BASELINE].cv_rmse)}`)+
     kpi("Cross-validated R²",f2(cv[M.best].cv_r2),`Baseline: ${f2(cv[BASELINE].cv_r2)}`)+kpi("Priority countries",String(all.filter(r=>r.prio).length),`of ${all.length} modelled`,"bad");
@@ -420,17 +411,18 @@ function renderModel(){
     plot('c-model',traces,layout(520,{margin:{l:56,r:16,t:40,b:50},xaxis:{title:"Predicted score",range:lim,gridcolor:"#E6EAF0"},yaxis:{title:"Actual score",range:lim,gridcolor:"#E6EAF0"}}));
     if(fl.length){const top=[...fl].sort((a,b)=>b.gap-a.gap)[0],rc=[...group(fl,r=>r.region)].sort((a,b)=>b[1].length-a[1].length)[0][0];
       setNote('n-model',`${fl.length} countries in view sit above the red line. The largest gap is ${esc(top.country)} (actual ${f1(top.actual)} vs predicted ${f1(top.pred)}), and ${esc(rc)} appears most often. These countries are more unequal than their development level explains, so they are candidates for a funding review beyond the development-group rule.`);}
-    else setNote('n-model','No country in view exceeds the priority line. Lower the threshold or widen the filters.');
+    else setNote('n-model','No country in view exceeds the priority line. Lower the threshold, lower the minimum score, or widen the filters.');
+    if(fl.some(r=>r.caution)){const nm=fl.filter(r=>r.caution).map(r=>esc(r.country)).join(', ');$('n-model').innerHTML+=` <b>Caution:</b> ${nm} ${fl.filter(r=>r.caution).length>1?'are':'is'} flagged only because the linear model predicts a score below zero. Raise the minimum score to screen out low-inequality countries.`;}
     const rows=fl.sort((a,b)=>b.gap-a.gap);
-    $('prioTable').innerHTML=rows.length?table(["Country","Development group","UNDP region","HDI rank","Actual","Predicted","Gap"],rows.map(r=>[r.country,r.hdg,r.region,r.hdi,f1(r.actual),f1(r.pred),(r.gap>=0?"+":"")+f1(r.gap)]),[3,4,5,6]):'<p style="padding:10px">No priority countries in view.</p>';
+    $('prioTable').innerHTML=rows.length?table(["Country","Development group","UNDP region","HDI rank","Actual","Predicted","Gap","Caution"],rows.map(r=>[r.country,r.hdg,r.region,r.hdi,f1(r.actual),f1(r.pred),(r.gap>=0?"+":"")+f1(r.gap),r.caution?"Predicted below zero: check actual score":""]),[3,4,5,6]):'<p style="padding:10px">No priority countries in view.</p>';
     window._prioRows=rows;
   }
   // justification + evaluation (static)
   const rf=M.holdout.find(h=>h.model==="Random Forest"),lr=M.holdout.find(h=>h.model==="Linear Regression");
   $('justify').innerHTML=`<ul class="tight">
    <li><b>Type:</b> predictive analytics (regression). Target: Inequality in Education, ${M.target_year}, one row per country (${M.n} countries modelled).</li>
-   <li><b>Why, from the EDA:</b> development group already explains much of the variation (finding 2), region matters and the ${D.meta.n_unclassified} unclassified countries need explicit handling (finding 4), so structural features should perform well and a group-mean baseline is a fair comparison.</li>
-   <li><b>Feature selection:</b> HDI rank, Human Development Group (ordinal), UNDP region (one-hot, incl. Unclassified). <b>Previous-year inequality is excluded</b> to avoid leakage (r = ${D.eda.persistence.r_prev}, finding 5).</li>
+   <li><b>Why, from the EDA:</b> development group already explains much of the variation, region matters and the ${D.meta.n_unclassified} unclassified countries need explicit handling, so structural features should perform well and a group-mean baseline is a fair comparison.</li>
+   <li><b>Feature selection:</b> HDI rank, Human Development Group (ordinal), UNDP region (one-hot, incl. Unclassified). <b>Previous-year inequality is excluded</b> to avoid leakage (r = ${D.eda.persistence.r_prev}).</li>
    <li><b>Baseline and models:</b> group mean vs Linear Regression vs Random Forest.</li>
    <li><b>Validation:</b> repeated 5-fold CV (5 repeats) plus an 80/20 hold-out to compare train and test error. Overfitting check: Random Forest train RMSE ${f2(rf.train_rmse)} vs test RMSE ${f2(rf.test_rmse)} (a large gap signals overfitting); Linear Regression ${f2(lr.train_rmse)} vs ${f2(lr.test_rmse)}.</li>
    <li><b>Alternatives rejected:</b> time-series forecasting (only 12 yearly points, values carried forward, nearly flat trend); NLP (no text field); prescriptive optimization (no cost or budget data).</li>
@@ -443,7 +435,6 @@ function renderModel(){
 
 /* ---------- NOTES ---------- */
 function renderNotes(){
-  $('findings').innerHTML=D.findings.map((f,i)=>`<div><b>${i+1}. ${esc(f.title)}</b><br>${esc(f.text)}<br><small>${esc(f.src)}</small></div>`).join('');
   const E=D.eda,cov=E.coverage,y0=Object.keys(cov)[0],y1=Object.keys(cov).at(-1);
   $('caveats').innerHTML=[
    `Source: UNDP Inequality in Education, prepared in the EDA notebook and saved as df_long.csv (one row per country and year).`,
@@ -453,7 +444,10 @@ function renderNotes(){
    `Many yearly values are carried forward (${E.persistence.zero_change_pct}% of year-to-year changes are zero) and 2021 repeats 2020, so year-to-year change is small by construction.`,
    `${D.meta.n_unclassified} countries have no UNDP region (${D.meta.n_unclassified_vh} are Very High development). They appear as "Unclassified" so they are not silently dropped.`,
    `The model explains inequality from development characteristics. It does not forecast future change and does not show cause and effect.`,
+   `The linear model can predict a score below zero for a few very developed countries (${M.results.filter(r=>r.pred<0).map(r=>r.country).join(', ')}). If one of them is flagged as a priority, the flag comes from the model limit, so check its actual score before acting.`,
    `The map uses 110m country shapes, so very small states may not be drawn even when they have data.`].map(t=>`<li>${esc(t)}</li>`).join('');
+  const byC=[...group(filtered,r=>r.c.name)].map(([n,v])=>{const ys=v.map(r=>r.y);return [n,v[0].c.hdg,v[0].c.region,Math.min(...ys),Math.max(...ys),ys.length];}).sort((a,b)=>a[5]-b[5]||a[0].localeCompare(b[0]));
+  $('covCountry').innerHTML=byC.length?table(["Country","Development group","UNDP region","First year","Last year","Years with data (of 12)"],byC,[3,4,5]):'<p style="padding:10px">No countries match the current filters.</p>';
   $('covTable').innerHTML=table(["Year","Countries with data"],Object.keys(cov).map(y=>[y,cov[y]]),[1]);
 }
 
@@ -463,14 +457,15 @@ function csv(rows){return rows.map(r=>r.map(v=>{v=String(v??'');return /[",\n]/.
 function download(name,text){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([text],{type:'text/csv'}));a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);}
 function initDownloads(){
   $('dlData').onclick=()=>download('filtered_inequality_data.csv',csv([["ISO3","Country","Development group","UNDP region","Year","Inequality"],...filtered.map(r=>[r.c.iso,r.c.name,r.c.hdg,r.c.region,r.y,r.v])]));
-  $('dlPrio').onclick=()=>download('priority_countries.csv',csv([["Country","Development group","UNDP region","HDI rank","Actual","Predicted","Gap"],...(window._prioRows||[]).map(r=>[r.country,r.hdg,r.region,r.hdi,r.actual,r.pred,r.gap])]));
+  $('dlPrio').onclick=()=>download('priority_countries.csv',csv([["Country","Development group","UNDP region","HDI rank","Actual","Predicted","Gap","Caution"],...(window._prioRows||[]).map(r=>[r.country,r.hdg,r.region,r.hdi,r.actual,r.pred,r.gap,r.caution?"Predicted below zero":""])]));
 }
 
 /* ---------- main ---------- */
 function renderAll(){
   recompute();renderHero();
   renderOverview();renderAct();renderModel();
-  if(!renderAll.once){renderNotes();initDownloads();renderAll.once=true;}
+  renderNotes();
+  if(!renderAll.once){initDownloads();renderAll.once=true;}
 }
 initTabs();initFilters();renderAll();
 $('impBox').addEventListener('toggle',()=>{if($('impBox').open)setTimeout(()=>Plotly.Plots.resize($('c-imp')),30);});
